@@ -1,0 +1,11 @@
+{
+  "name": "script-2025/9/26",
+  "version": "0.0.0",
+  "scripts": {
+    "start": "sky up src",
+    "box": "sky box src dist"
+  },
+  "devDependencies": {
+    "skyup": "0.0.7"
+  }
+}

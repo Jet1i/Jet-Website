@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "module": "es2020",
+    "target": "esnext",
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "strictNullChecks": false,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "noImplicitAny": false,
+    "allowJs": true,
+    "sourceMap": false,
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ESNext",
+
+      "WebWorker"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "~/*": [
+        "src/*"
+      ],
+    },
+  },
+  "exclude": [
+    "node_modules"
+  ]
+}

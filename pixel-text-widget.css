@@ -1,0 +1,182 @@
+/* Pixel Text Widget Styles */
+.pixel-text-widget {
+    position: relative;
+    width: 100%;
+    padding: 60px 20px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+    touch-action: manipulation; /* Optimize touch performance */
+}
+
+.pixel-canvas {
+    position: relative;
+    display: inline-block;
+    user-select: none;
+    cursor: crosshair;
+    touch-action: none; /* Prevent scrolling during interaction */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.pixel-row {
+    display: flex;
+    line-height: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.pixel {
+    width: 8px;
+    height: 8px;
+    margin: 1px;
+    background: #00d4ff;
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transform-origin: center;
+    position: relative;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+    border-radius: 1px;
+    will-change: transform;
+}
+
+.pixel.active {
+    background: #00d4ff;
+    box-shadow: 
+        0 0 15px rgba(0, 212, 255, 0.6),
+        0 0 30px rgba(0, 212, 255, 0.3),
+        inset 0 0 5px rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+}
+
+.pixel.inactive {
+    background: transparent;
+    box-shadow: none;
+}
+
+.pixel.displaced {
+    transition: none; /* Remove transition for real-time interaction */
+}
+
+.pixel.returning {
+    transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.175);
+}
+
+/* Glow animation for active pixels */
+.pixel.active {
+    animation: pixelGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes pixelGlow {
+    0% {
+        box-shadow: 
+            0 0 15px rgba(0, 212, 255, 0.6),
+            0 0 30px rgba(0, 212, 255, 0.3),
+            inset 0 0 5px rgba(255, 255, 255, 0.2);
+    }
+    100% {
+        box-shadow: 
+            0 0 25px rgba(0, 212, 255, 0.8),
+            0 0 50px rgba(0, 212, 255, 0.4),
+            inset 0 0 8px rgba(255, 255, 255, 0.3);
+    }
+}
+
+/* Widget title */
+.pixel-text-widget h3 {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #00d4ff;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    font-weight: 300;
+    margin: 0;
+    opacity: 0.7;
+    letter-spacing: 2px;
+}
+
+/* Mobile-first touch optimizations */
+@media (max-width: 768px) {
+    .pixel {
+        width: 6px;
+        height: 6px;
+        margin: 0.5px;
+        transition: all 0.3s ease-out; /* Faster animations on mobile */
+    }
+    
+    .pixel-text-widget {
+        padding: 40px 10px;
+        min-height: 150px;
+    }
+    
+    .pixel-text-widget h3 {
+        font-size: 14px;
+        top: 15px;
+    }
+    
+    .pixel-canvas {
+        cursor: pointer; /* Better touch indication */
+    }
+    
+    /* Enhanced touch feedback */
+    .pixel.active {
+        transform: scale(1.1);
+    }
+}
+
+@media (max-width: 480px) {
+    .pixel {
+        width: 5px;
+        height: 5px;
+        margin: 0.5px;
+        transition: all 0.25s ease-out; /* Even faster on small screens */
+    }
+    
+    .pixel-text-widget {
+        padding: 25px 5px;
+        min-height: 100px;
+    }
+    
+    .pixel-text-widget h3 {
+        font-size: 12px;
+        top: 10px;
+        letter-spacing: 1px;
+    }
+    
+    /* Larger touch targets on small screens */
+    .pixel.active {
+        transform: scale(1.15);
+        box-shadow: 
+            0 0 12px rgba(0, 212, 255, 0.7),
+            0 0 25px rgba(0, 212, 255, 0.4),
+            inset 0 0 4px rgba(255, 255, 255, 0.3);
+    }
+}
+
+/* High DPI displays optimization */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .pixel {
+        image-rendering: crisp-edges;
+        image-rendering: -webkit-crisp-edges;
+    }
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .pixel {
+        transition: none;
+    }
+    
+    .pixel.returning {
+        transition: all 0.3s ease;
+    }
+    
+    .pixel.active {
+        animation: none;
+    }
+}
