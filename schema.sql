@@ -90,7 +90,11 @@ INSERT OR IGNORE INTO knowledge_base (category, title, content, keywords, priori
 
 ('projects', 'Focus Areas', 'Current focus on building intelligent embedded systems, developing AI agents for IoT applications, research in edge computing, and creating innovative solutions that bridge hardware and software.', 'projects,iot,ai agents,edge computing,embedded', 7),
 
-('contact', 'Getting in Touch', 'Available for professional inquiries, collaboration opportunities, and project discussions. Contact information can be found in the contact section of this website.', 'contact,email,collaboration,opportunities', 6);
+('contact', 'Getting in Touch', 'Available for professional inquiries, collaboration opportunities, and project discussions. Contact information can be found in the contact section of this website.', 'contact,email,collaboration,opportunities', 6),
+
+('current_status', 'Job Search and Thesis', 'Yiming is currently looking for job opportunities and working on his master thesis. He is actively seeking positions in embedded systems, IoT development, AI/ML applications, and related fields. He is also in the process of completing his master thesis as part of his Embedded Systems program at EIT Digital.', 'job,work,looking,seeking,thesis,master thesis,opportunities,career,employment,hiring,position,what is he looking for', 9),
+
+('career', 'Career Interests', 'Yiming is interested in roles involving embedded systems engineering, IoT development, AI/ML implementation on edge devices, real-time systems programming, and cross-platform development. He is particularly passionate about combining AI technologies with embedded systems.', 'career,interested,roles,embedded,iot,ai,ml,real-time,passion,combining,interests', 8);
 
 -- Trigger to update updated_at timestamp (for databases that support triggers)
 -- Note: D1 may not support all trigger features

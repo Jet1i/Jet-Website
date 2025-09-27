@@ -58,7 +58,7 @@ function handleHealthCheck(env) {
 // Enhanced chat request handler
 async function handleChatRequest(request, env) {
   try {
-    const { message, sessionId, language = 'auto' } = await request.json();
+    const { message, sessionId, language = 'auto', forceLanguage = null } = await request.json();
     
     if (!message?.trim()) {
       return createErrorResponse('Message is required', 400);
@@ -67,9 +67,9 @@ async function handleChatRequest(request, env) {
     console.log(`Processing chat request: ${message.substring(0, 100)}...`);
     console.log(`Message char codes: ${Array.from(message).map(c => c.charCodeAt(0)).join(',')}`);
     
-    // Detect language for better processing
-    const detectedLanguage = detectLanguage(message);
-    console.log(`Detected language: ${detectedLanguage}`);
+    // Use frontend language detection if available, otherwise detect on backend
+    const detectedLanguage = forceLanguage || detectLanguage(message);
+    console.log(`Language detection - Frontend: ${forceLanguage}, Backend: ${detectLanguage(message)}, Final: ${detectedLanguage}`);
 
     // Pre-process Chinese queries: translate to English for better search
     let searchQuery = message;
@@ -203,6 +203,14 @@ async function enhancedKeywordSearch(env, userMessage, language, limit = 10) {
       'interests': {
         en: ['hobby', 'interest', 'personal', 'free', 'time', 'like', 'enjoy'],
         zh: ['爱好', '兴趣', '喜欢', '业余', '空闲', '个人']
+      },
+      'current_status': {
+        en: ['looking', 'seeking', 'search', 'want', 'need', 'thesis', 'job', 'work', 'career', 'employment', 'opportunity'],
+        zh: ['找', '寻找', '找工作', '求职', '论文', '毕业论文', '工作', '职业', '机会', '就业']
+      },
+      'career': {
+        en: ['career', 'interested', 'passion', 'role', 'position', 'field', 'industry'],
+        zh: ['职业', '兴趣', '热情', '角色', '职位', '领域', '行业', '感兴趣']
       }
     };
     
@@ -414,6 +422,10 @@ async function generateGemini25Response(env, userMessage, relevantKnowledge, lan
 4. Focus on the most relevant information based on confidence scores
 5. Keep responses concise but informative`;
 
+    // Check if we have relevant knowledge for this query
+    const hasRelevantInfo = relevantKnowledge && relevantKnowledge.length > 0 && 
+                           relevantKnowledge.some(item => item.score > 0.3);
+
     const prompt = `${systemPrompt}
 
 ${responseGuidelines}
@@ -421,7 +433,12 @@ ${responseGuidelines}
 ## User Question: ${userMessage}${searchContext}
 ${knowledgeContext}
 
-Please provide a helpful response based on the available information:`;
+## Instructions:
+${hasRelevantInfo ? 
+  'Please provide a helpful response based on the available information above.' : 
+  'The question asks for specific information that is not available in the knowledge base. Please politely explain that this specific information is not available and suggest contacting Yiming directly for such details. You can still mention general information about Yiming if relevant.'}
+
+Please provide a helpful response:`;
 
     console.log('Calling Gemini 2.5 Flash API...');
     
@@ -547,25 +564,50 @@ async function generateEmbedding(env, text) {
 
 // Utility functions
 function detectLanguage(text) {
-  // Simple but reliable Chinese detection
-  console.log(`Analyzing text: "${text}" (length: ${text.length})`);
+  // Robust Chinese detection with multiple strategies
+  console.log(`Language detection for: "${text}" (length: ${text.length})`);
   
-  // Check each character individually
+  // Strategy 1: Unicode range check
+  const chineseRegex = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/;
+  if (chineseRegex.test(text)) {
+    console.log('Strategy 1: Found Chinese characters via regex');
+    return 'zh';
+  }
+  
+  // Strategy 2: Common Chinese words/phrases
+  const chineseWords = [
+    '李一鸣', '一鸣', '你好', '什么', '哪里', '工作', '论文', '找', '在', '的', '是', '了', '和', '有', '他', '她', '我', '你',
+    '毕业', '学位', '技能', '项目', '经验', '教育', '大学', '专业', '研究', '开发', '设计', '系统', '软件', '硬件'
+  ];
+  
+  const hasChineseWords = chineseWords.some(word => text.includes(word));
+  if (hasChineseWords) {
+    console.log('Strategy 2: Found Chinese words');
+    return 'zh';
+  }
+  
+  // Strategy 3: Character code analysis
+  let chineseCharCount = 0;
   for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    const code = char.charCodeAt(0);
-    console.log(`Char ${i}: "${char}" -> U+${code.toString(16).toUpperCase().padStart(4, '0')}`);
-    
-    // Chinese character ranges
-    if ((code >= 0x4e00 && code <= 0x9fff) ||  // CJK Unified Ideographs
-        (code >= 0x3400 && code <= 0x4dbf) ||  // CJK Extension A
-        (code >= 0xf900 && code <= 0xfaff)) {  // CJK Compatibility Ideographs
-      console.log(`Found Chinese character: ${char} (U+${code.toString(16).toUpperCase()})`);
-      return 'zh';
+    const code = text.charCodeAt(i);
+    if (code >= 0x4e00 && code <= 0x9fff) {
+      chineseCharCount++;
+      console.log(`Strategy 3: Found Chinese char at position ${i}: ${text[i]} (U+${code.toString(16)})`);
     }
   }
   
-  console.log('No Chinese characters detected, returning English');
+  if (chineseCharCount > 0) {
+    console.log(`Strategy 3: Found ${chineseCharCount} Chinese characters`);
+    return 'zh';
+  }
+  
+  // Strategy 4: Check for specific patterns that might indicate encoding issues
+  if (text.includes('？') || text.includes('，') || text.includes('。')) {
+    console.log('Strategy 4: Found Chinese punctuation');
+    return 'zh';
+  }
+  
+  console.log('All strategies failed, defaulting to English');
   return 'en';
 }
 
@@ -651,9 +693,19 @@ async function hashText(text) {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Fallback response generator
+// Enhanced fallback response generator
 function generateFallbackResponse(userMessage, relevantKnowledge, language) {
   const message = userMessage.toLowerCase();
+  
+  // Check for specific personal questions that we likely don't have answers for
+  const personalQuestions = ['age', 'old', 'birthday', 'born', 'favorite', 'likes', 'hobbies', 'relationship', 'married', 'family', 'address', 'phone number', 'personal life'];
+  const isPersonalQuestion = personalQuestions.some(word => message.includes(word));
+  
+  if (isPersonalQuestion) {
+    return language === 'zh' ? 
+      `抱歉，我没有关于李一鸣的这个具体信息。我主要了解他的教育背景、专业技能、项目经验和获奖情况。如需了解更多个人信息，建议直接通过网站联系他。` :
+      `I don't have that specific information about Yiming. I have details about his education, professional skills, projects, and achievements, but not personal details like this. For such specific information, I'd recommend contacting Yiming directly through this website.`;
+  }
   
   if (relevantKnowledge && relevantKnowledge.length > 0) {
     const firstResult = relevantKnowledge[0];

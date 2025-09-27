@@ -1,32 +1,133 @@
-// Mobile Navigation Toggle
-const hamburger = document.querySelector('.hamburger');
-const navMenu = document.querySelector('.nav-menu');
+// Mobile Navigation Toggle - Full Screen Menu
+document.addEventListener('DOMContentLoaded', function() {
+    const hamburger = document.querySelector('.hamburger');
+    const navMenu = document.querySelector('.nav-menu');
+    const navClose = document.querySelector('.nav-close');
+    
+    console.log('DOM loaded, hamburger:', !!hamburger, 'navMenu:', !!navMenu, 'navClose:', !!navClose);
 
-if (hamburger && navMenu) {
-    hamburger.addEventListener('click', () => {
-        hamburger.classList.toggle('active');
-        navMenu.classList.toggle('active');
-    });
+    // Initialize ARIA attributes and id for accessibility
+    if (hamburger && navMenu) {
+        if (!navMenu.id) {
+            navMenu.id = 'primary-navigation';
+        }
+        hamburger.setAttribute('aria-controls', navMenu.id);
+        hamburger.setAttribute('aria-expanded', 'false');
+        navMenu.setAttribute('aria-hidden', 'true');
+    }
 
-    // Close mobile menu when clicking on a link
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.addEventListener('click', () => {
-            hamburger.classList.remove('active');
-            navMenu.classList.remove('active');
+    function openMenu() {
+        // Portal nav menu to body so it overlays the whole page (avoid clipping by navbar/backdrop)
+        try {
+            if (!window.__navMenuPlaceholder && navMenu) {
+                window.__navMenuPlaceholder = document.createElement('div');
+                window.__navMenuPlaceholder.id = 'nav-menu-placeholder';
+                window.__navMenuPlaceholder.style.display = 'none';
+                navMenu.parentElement.insertBefore(window.__navMenuPlaceholder, navMenu);
+            }
+            if (navMenu && navMenu.parentElement !== document.body) {
+                document.body.appendChild(navMenu);
+            }
+        } catch (e) {
+            console.warn('Portal nav-menu failed:', e);
+        }
+        hamburger.classList.add('active');
+        navMenu.classList.add('active');
+        hamburger.setAttribute('aria-expanded','true');
+        navMenu.setAttribute('aria-hidden','false');
+        // document.body.classList.add('menu-open'); // optional for drawer/backdrop if needed later
+        // document.body.style.overflow = 'hidden'; // keep background scroll for side drawer
+        console.log('Menu opened');
+    }
+    
+    function closeMenu() {
+        // Restore nav menu back into navbar structure
+        try {
+            if (window.__navMenuPlaceholder && window.__navMenuPlaceholder.parentElement && navMenu && navMenu.parentElement === document.body) {
+                window.__navMenuPlaceholder.parentElement.insertBefore(navMenu, window.__navMenuPlaceholder);
+            }
+        } catch (e) {
+            console.warn('Restore nav-menu failed:', e);
+        }
+        hamburger.classList.remove('active');
+        navMenu.classList.remove('active');
+        hamburger.setAttribute('aria-expanded','false');
+        navMenu.setAttribute('aria-hidden','true');
+        document.body.classList.remove('menu-open');
+        // document.body.style.overflow = ''; // no-op for side drawer
+        console.log('Menu closed');
+    }
+
+    if (hamburger && navMenu) {
+        // Open menu when hamburger is clicked
+        hamburger.addEventListener('click', function(e) {
+            console.log('Hamburger button clicked!');
+            if (navMenu.classList.contains('active')) {
+                closeMenu();
+            } else {
+                openMenu();
+            }
         });
-    });
-}
+        
+        // Close menu when close button is clicked
+        if (navClose) {
+            navClose.addEventListener('click', function(e) {
+                console.log('Close button clicked!');
+                closeMenu();
+            });
+        }
+
+        // Close mobile menu when clicking on a navigation link
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', () => {
+                closeMenu();
+            });
+        });
+        
+        // Close when clicking outside the floating panel
+        document.addEventListener('click', function(e) {
+            if (!navMenu.contains(e.target) && !hamburger.contains(e.target) && navMenu.classList.contains('active')) {
+                closeMenu();
+            }
+        });
+
+        // Close menu on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && navMenu.classList.contains('active')) {
+                closeMenu();
+            }
+        });
+    } else {
+        console.error('Elements not found - hamburger:', !!hamburger, 'navMenu:', !!navMenu);
+    }
+});
 
 // Smooth scrolling for navigation links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
         e.preventDefault();
+        
+        // Close mobile menu first
+        const hamburger = document.querySelector('.hamburger');
+        const navMenu = document.querySelector('.nav-menu');
+        if (hamburger && navMenu) {
+            hamburger.classList.remove('active');
+            navMenu.classList.remove('active');
+            hamburger.setAttribute('aria-expanded','false');
+            navMenu.setAttribute('aria-hidden','true');
+            document.body.classList.remove('menu-open');
+            document.body.style.overflow = '';
+        }
+        
         const target = document.querySelector(this.getAttribute('href'));
         if (target) {
-            target.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start'
-            });
+            // Add small delay to allow menu to close
+            setTimeout(() => {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }, 100);
         }
     });
 });

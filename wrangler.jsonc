@@ -3,7 +3,8 @@
   "compatibility_date": "2024-01-09",
   "main": "worker.js",
   "assets": {
-    "directory": "."
+    "directory": ".",
+    "binding": "ASSETS"
   },
   "vars": {
     "ENVIRONMENT": "production"
@@ -14,7 +15,7 @@
       "database_name": "chatbot-db",
       "database_id": "43db68ad-b390-4db7-a776-74c42ae5ff81"
     }
-  ],
+  ]
 }
 
 

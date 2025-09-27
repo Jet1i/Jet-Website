@@ -21,6 +21,7 @@ class OptimizedChatBot {
         this.checkConnection();
         this.addWelcomeMessage();
         this.setupIntersectionObserver();
+        this.updatePlaceholderText();
     }
 
     generateSessionId() {
@@ -66,7 +67,7 @@ class OptimizedChatBot {
                             <textarea 
                                 class="chatbot-input" 
                                 id="chatbot-input" 
-                                placeholder="Ask me anything about Yiming..."
+                                placeholder="Ask me about Yiming..."
                                 rows="1"
                                 maxlength="500"
                             ></textarea>
@@ -120,6 +121,17 @@ class OptimizedChatBot {
             this.handleInputChange();
         });
 
+        // Mobile keyboard handling
+        if (this.isMobile()) {
+            input.addEventListener('focus', () => {
+                this.handleMobileKeyboardOpen();
+            });
+            
+            input.addEventListener('blur', () => {
+                this.handleMobileKeyboardClose();
+            });
+        }
+
         // Send button
         document.getElementById('chatbot-send').addEventListener('click', () => {
             this.handleSendMessage();
@@ -138,12 +150,29 @@ class OptimizedChatBot {
             }
         });
 
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.altKey && e.key === 'c') {
-                this.toggleChatbot();
-            }
+        // Keyboard shortcuts (desktop only)
+        if (!this.isMobile()) {
+            document.addEventListener('keydown', (e) => {
+                if (e.altKey && e.key === 'c') {
+                    this.toggleChatbot();
+                }
+            });
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            this.handleWindowResize();
+            this.updatePlaceholderText();
         });
+
+        // Prevent body scroll when chatbot is open on mobile
+        if (this.isMobile()) {
+            document.addEventListener('touchmove', (e) => {
+                if (this.isOpen && !document.getElementById('chatbot-messages').contains(e.target)) {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+        }
     }
 
     setupIntersectionObserver() {
@@ -237,9 +266,13 @@ class OptimizedChatBot {
                 const sourcesDiv = document.createElement('div');
                 sourcesDiv.className = 'message-sources';
                 sourcesDiv.innerHTML = `
-                    <span class="sources-label">Sources:</span>
+                    <span class="sources-label"><i class="fas fa-book"></i> Sources:</span>
                     ${metadata.relevantSources.map(source => 
-                        `<span class="source-tag">${source.category} (${source.confidence}%)</span>`
+                        `<span class="source-tag" title="${source.title}">
+                            <i class="fas fa-tag"></i>
+                            ${this.getCategoryDisplayName(source.category)} 
+                            <span class="confidence-badge">${source.confidence}%</span>
+                        </span>`
                     ).join('')}
                 `;
                 metadataDiv.appendChild(sourcesDiv);
@@ -323,9 +356,20 @@ class OptimizedChatBot {
         counter.textContent = `${input.value.length}/500`;
         sendBtn.disabled = input.value.trim().length === 0;
         
-        // Auto-resize textarea
+        // Enhanced auto-resize textarea with mobile optimization
+        const isMobile = window.innerWidth <= 768;
+        const maxHeight = isMobile ? 80 : 100;
+        
         input.style.height = 'auto';
-        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+        const newHeight = Math.min(input.scrollHeight, maxHeight);
+        input.style.height = newHeight + 'px';
+        
+        // Ensure input is visible on mobile when typing
+        if (isMobile && this.isOpen) {
+            setTimeout(() => {
+                input.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+        }
     }
 
     async handleSendMessage() {
@@ -365,16 +409,37 @@ class OptimizedChatBot {
         }
     }
 
+    // Frontend language detection (more reliable)
+    detectLanguageOnFrontend(text) {
+        // Check for Chinese characters
+        const chineseRegex = /[\u4e00-\u9fff]/;
+        if (chineseRegex.test(text)) {
+            return 'zh';
+        }
+        
+        // Check for common Chinese words
+        const chineseWords = ['李一鸣', '一鸣', '你好', '什么', '哪里', '工作', '论文', '找', '在', '的', '是', '了', '和', '有', '他', '她', '我', '你'];
+        if (chineseWords.some(word => text.includes(word))) {
+            return 'zh';
+        }
+        
+        return 'en';
+    }
+
     async sendToAPI(message) {
+        // Detect language on frontend first
+        const detectedLanguage = this.detectLanguageOnFrontend(message);
+        
         const response = await fetch(this.apiEndpoint, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json; charset=utf-8',
             },
             body: JSON.stringify({
                 message: message,
                 sessionId: this.sessionId,
-                language: this.lastLanguage
+                language: detectedLanguage,
+                forceLanguage: detectedLanguage  // Force the backend to use this detection
             })
         });
 
@@ -509,6 +574,135 @@ class OptimizedChatBot {
 
     setLanguage(lang) {
         this.lastLanguage = lang;
+    }
+
+    // Get user-friendly category display names
+    getCategoryDisplayName(category) {
+        const categoryMap = {
+            'personal': '👤 Personal Info',
+            'education': '🎓 Education',
+            'experience': '💼 Experience',
+            'projects': '💻 Projects',
+            'skills': '🛠️ Skills',
+            'awards': '🏆 Awards',
+            'contact': '📧 Contact',
+            'current_status': '🎯 Current Status',
+            'career': '🚀 Career',
+            'interests': '🎨 Interests',
+            'languages': '🌐 Languages'
+        };
+        return categoryMap[category] || category;
+    }
+
+    // Mobile detection and optimization methods
+    isMobile() {
+        return window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
+    // Dynamic placeholder text based on screen size
+    updatePlaceholderText() {
+        const input = document.getElementById('chatbot-input');
+        const screenWidth = window.innerWidth;
+        
+        if (screenWidth <= 360) {
+            input.placeholder = "Ask about Yiming...";
+        } else if (screenWidth <= 480) {
+            input.placeholder = "Ask me about Yiming...";
+        } else if (screenWidth <= 768) {
+            input.placeholder = "Ask me about Yiming's work...";
+        } else {
+            input.placeholder = "Ask me anything about Yiming...";
+        }
+    }
+
+    handleMobileKeyboardOpen() {
+        if (!this.isMobile()) return;
+        
+        const chatbotWindow = document.getElementById('chatbot-window');
+        const inputArea = document.getElementById('chatbot-input-area');
+        
+        // Adjust window height when keyboard opens
+        setTimeout(() => {
+            const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+            chatbotWindow.style.height = `${Math.min(viewportHeight - 100, 600)}px`;
+            
+            // Scroll to input
+            inputArea.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }, 300);
+    }
+
+    handleMobileKeyboardClose() {
+        if (!this.isMobile()) return;
+        
+        const chatbotWindow = document.getElementById('chatbot-window');
+        
+        // Restore window height when keyboard closes
+        setTimeout(() => {
+            chatbotWindow.style.height = '';
+        }, 300);
+    }
+
+    handleWindowResize() {
+        if (this.isOpen && this.isMobile()) {
+            const chatbotWindow = document.getElementById('chatbot-window');
+            const messagesContainer = document.getElementById('chatbot-messages');
+            
+            // Adjust layout on orientation change
+            setTimeout(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }, 100);
+        }
+    }
+
+    // Enhanced mobile-friendly methods
+    openChatbot() {
+        const window = document.getElementById('chatbot-window');
+        const toggle = document.getElementById('chatbot-toggle');
+        const badge = document.getElementById('chatbot-badge');
+        
+        window.classList.add('open');
+        toggle.classList.add('active');
+        badge.style.display = 'none';
+        this.isOpen = true;
+        
+        // Mobile optimizations
+        if (this.isMobile()) {
+            // Prevent body scroll
+            document.body.style.overflow = 'hidden';
+            
+            // Focus on input with delay for mobile
+            setTimeout(() => {
+                const input = document.getElementById('chatbot-input');
+                input.focus();
+                // Force scroll to bottom
+                const messages = document.getElementById('chatbot-messages');
+                messages.scrollTop = messages.scrollHeight;
+            }, 400);
+        } else {
+            // Desktop focus
+            setTimeout(() => {
+                document.getElementById('chatbot-input').focus();
+            }, 300);
+        }
+    }
+
+    closeChatbot() {
+        const window = document.getElementById('chatbot-window');
+        const toggle = document.getElementById('chatbot-toggle');
+        
+        window.classList.remove('open');
+        toggle.classList.remove('active');
+        this.isOpen = false;
+        
+        // Mobile optimizations
+        if (this.isMobile()) {
+            // Restore body scroll
+            document.body.style.overflow = '';
+            
+            // Blur input to close keyboard
+            const input = document.getElementById('chatbot-input');
+            input.blur();
+        }
     }
 }
 
