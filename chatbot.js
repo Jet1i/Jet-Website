@@ -8,8 +8,10 @@ class OptimizedChatBot {
         this.sessionId = this.generateSessionId();
         this.messageHistory = [];
         this.isTyping = false;
+        this.isLoading = false;
         this.retryCount = 0;
         this.maxRetries = 3;
+        this.consecutiveErrors = 0;
         this.lastLanguage = 'auto';
         
         this.init();
@@ -376,7 +378,7 @@ class OptimizedChatBot {
         const input = document.getElementById('chatbot-input');
         const message = input.value.trim();
         
-        if (!message || this.isTyping) return;
+        if (!message || this.isTyping || this.isLoading) return;
         
         if (!this.isConnected) {
             this.showError('Not connected to AI assistant. Please try again later.');
@@ -388,16 +390,19 @@ class OptimizedChatBot {
         input.value = '';
         this.handleInputChange();
         
-        // Show typing indicator
+        // Show typing indicator and set loading state
         this.addTypingIndicator();
+        this.setLoadingState(true);
         
         try {
-            const response = await this.sendToAPI(message);
+            const response = await this.sendMessageWithRetry(message);
             this.removeTypingIndicator();
+            this.setLoadingState(false);
             
             if (response.response) {
                 this.addMessage(response.response, false, response);
                 this.lastLanguage = response.metadata?.language || 'auto';
+                this.consecutiveErrors = 0; // Reset error count on success
             } else {
                 throw new Error('No response received');
             }
@@ -405,7 +410,9 @@ class OptimizedChatBot {
         } catch (error) {
             console.error('Error sending message:', error);
             this.removeTypingIndicator();
-            this.showError('Sorry, I encountered an error. Please try again.');
+            this.setLoadingState(false);
+            this.consecutiveErrors++;
+            this.showError(this.getEnhancedErrorMessage(error));
         }
     }
 
@@ -426,29 +433,67 @@ class OptimizedChatBot {
         return 'en';
     }
 
+    async sendMessageWithRetry(message, maxRetries = 3) {
+        let lastError;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const response = await this.sendToAPI(message);
+                return response;
+            } catch (error) {
+                lastError = error;
+                console.error(`Attempt ${attempt} failed:`, error);
+                
+                // Don't retry on certain errors
+                if (error.name === 'AbortError' || 
+                    error.message.includes('401') || 
+                    error.message.includes('403') ||
+                    attempt === maxRetries) {
+                    break;
+                }
+                
+                // Wait before retry with exponential backoff
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+            }
+        }
+        
+        throw lastError;
+    }
+
     async sendToAPI(message) {
         // Detect language on frontend first
         const detectedLanguage = this.detectLanguageOnFrontend(message);
         
-        const response = await fetch(this.apiEndpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json; charset=utf-8',
-            },
-            body: JSON.stringify({
-                message: message,
-                sessionId: this.sessionId,
-                language: detectedLanguage,
-                forceLanguage: detectedLanguage  // Force the backend to use this detection
-            })
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        
+        try {
+            const response = await fetch(this.apiEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json; charset=utf-8',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    sessionId: this.sessionId,
+                    language: detectedLanguage,
+                    forceLanguage: detectedLanguage
+                }),
+                signal: controller.signal
+            });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `HTTP ${response.status}`);
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `HTTP ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            clearTimeout(timeoutId);
+            throw error;
         }
-
-        return await response.json();
     }
 
     handleSuggestionClick(text) {
@@ -494,6 +539,72 @@ class OptimizedChatBot {
         recognition.start();
     }
 
+    setLoadingState(isLoading) {
+        this.isLoading = isLoading;
+        const sendBtn = document.getElementById('chatbot-send');
+        const input = document.getElementById('chatbot-input');
+        
+        if (isLoading) {
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            input.disabled = true;
+        } else {
+            sendBtn.disabled = input.value.trim().length === 0;
+            sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+            input.disabled = false;
+        }
+    }
+
+    getEnhancedErrorMessage(error) {
+        const isZh = this.lastLanguage === 'zh';
+        
+        // Handle specific error types
+        if (error) {
+            if (error.name === 'AbortError') {
+                return isZh ? 
+                    '请求超时了。请检查您的网络连接，然后重试。' :
+                    'Request timed out. Please check your connection and try again.';
+            }
+            
+            if (error.message.includes('403') || error.message.includes('401')) {
+                return isZh ?
+                    '认证出现问题。请刷新页面后重试。' :
+                    'Authentication issue. Please refresh the page and try again.';
+            }
+            
+            if (error.message.includes('429')) {
+                return isZh ?
+                    '请求过于频繁，请稍等片刻后重试。' :
+                    'Too many requests. Please wait a moment and try again.';
+            }
+            
+            if (error.message.includes('500') || error.message.includes('502') || error.message.includes('503')) {
+                return isZh ?
+                    '服务器遇到问题，请稍后重试。如问题持续，请直接联系李一鸣。' :
+                    'Server issue encountered. Please try again later. If the problem persists, contact Yiming directly.';
+            }
+        }
+        
+        // Progressive error messages for consecutive failures
+        if (this.consecutiveErrors >= 3) {
+            return isZh ?
+                '看起来聊天服务遇到了持续问题。建议您直接通过网站的联系方式与李一鸣联系，或稍后再试。' :
+                'The chat service seems to be experiencing persistent issues. I recommend contacting Yiming directly through the website contact information, or try again later.';
+        }
+        
+        const responses = isZh ? [
+            '抱歉，我现在遇到了一些技术问题。请稍后再试，或者直接通过网站联系李一鸣。',
+            '服务暂时不可用，请稍后重试。如有紧急事宜，请直接联系。',
+            '网络连接出现问题，请检查您的网络连接后重试。'
+        ] : [
+            'Sorry, I\'m experiencing some technical difficulties right now. Please try again later or contact Yiming directly through the website.',
+            'Service temporarily unavailable. Please try again in a moment. For urgent matters, please contact directly.',
+            'Network connection issue. Please check your connection and try again.'
+        ];
+        
+        return responses[Math.floor(Math.random() * responses.length)];
+    }
+
     showError(message) {
         const messagesContainer = document.getElementById('chatbot-messages');
         const errorDiv = document.createElement('div');
@@ -502,6 +613,7 @@ class OptimizedChatBot {
             <div class="message-content">
                 <i class="fas fa-exclamation-triangle"></i>
                 ${message}
+                ${this.consecutiveErrors >= 2 ? '<div class="retry-hint">💡 Tip: Try refreshing the page if issues persist</div>' : ''}
             </div>
         `;
         messagesContainer.appendChild(errorDiv);

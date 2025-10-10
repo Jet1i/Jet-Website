@@ -1,0 +1,90 @@
+/* Glitch Signature Widget - Full Width Interactive */
+.signature-widget {
+    position: relative;
+    width: 100%;
+    padding: 0;
+    background: linear-gradient(135deg, #0b0b12 0%, #121225 35%, #0e1a36 70%, #0a2e55 100%);
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 260px;
+    border-radius: 0;
+    margin: 0;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* Ambient gradient glow layers */
+.signature-widget::before,
+.signature-widget::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.signature-widget::before {
+    background:
+      radial-gradient(60% 80% at 10% 50%, rgba(0, 212, 255, 0.10), transparent 60%),
+      radial-gradient(50% 50% at 85% 50%, rgba(0, 120, 255, 0.08), transparent 60%);
+    animation: gradientDrift 14s ease-in-out infinite;
+}
+
+.signature-widget::after {
+    background: linear-gradient(90deg, transparent 0%, rgba(0, 212, 255, 0.05) 50%, transparent 100%);
+    mix-blend-mode: screen;
+    opacity: 0.5;
+    animation: scanPulse 6s ease-in-out infinite;
+}
+
+@keyframes gradientDrift { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(24px); } }
+@keyframes scanPulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.6; } }
+
+/* Remove title if present */
+.signature-widget h3 { display: none; }
+
+.signature-container {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    padding: 24px 24px;
+}
+
+.signature-canvas {
+    width: 100%;
+    height: 220px;
+    display: block;
+    cursor: ew-resize; /* horizontal interaction hint */
+    background: transparent;
+    user-select: none;
+}
+
+/* Loading state */
+.signature-widget.loading .signature-container::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 36px; height: 36px;
+    border: 2px solid rgba(0, 212, 255, 0.25);
+    border-top-color: #00d4ff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+.signature-widget.loading .signature-container::after {
+    content: 'Preparing glitch...';
+    position: absolute;
+    top: calc(50% + 28px); left: 50%; transform: translateX(-50%);
+    color: #8adfff; font-size: 12px; letter-spacing: 1px; opacity: 0.7;
+}
+@keyframes spin { from { transform: translate(-50%, -50%) rotate(0); } to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+/* Mobile */
+@media (max-width: 768px) {
+    .signature-canvas { height: 180px; }
+    .signature-container { padding: 16px; }
+}
+@media (max-width: 480px) { .signature-canvas { height: 150px; } }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) { .signature-widget::before, .signature-widget::after { animation: none; } }

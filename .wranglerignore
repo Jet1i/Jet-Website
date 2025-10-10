@@ -1,0 +1,26 @@
+# Prevent uploading dev and repo internals
+.git/
+.wrangler/
+.wrangler/**
+node_modules/
+
+# Docs and binary
+*.md
+*.pdf
+acli.exe
+
+# Old signature variants (not needed in prod)
+optimized-signature.css
+optimized-signature.js
+optimized-signature-backup.css
+optimized-signature-backup.js
+modern-signature.css
+modern-signature.js
+mosaic-signature.css
+mosaic-signature.js
+
+# Local scripts
+deploy-modern-signature.ps1
+
+# Temporary files
+tmp_rovodev_*

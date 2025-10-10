@@ -83,7 +83,7 @@ async function handleChatRequest(request, env) {
     }
 
     // Enhanced knowledge retrieval with adaptive search (using English query)
-    const relevantKnowledge = await adaptiveKnowledgeSearch(env, searchQuery, 'en');
+    const relevantKnowledge = await adaptiveKnowledgeSearch(env, searchQuery, 'en', 6, sessionId);
     console.log(`Found ${relevantKnowledge.length} relevant knowledge items`);
 
     // Generate contextual response with Gemini 2.5 Flash
@@ -126,7 +126,7 @@ async function handleChatRequest(request, env) {
 }
 
 // Adaptive knowledge search combining multiple strategies
-async function adaptiveKnowledgeSearch(env, userMessage, language = 'en', limit = 6) {
+async function adaptiveKnowledgeSearch(env, userMessage, language = 'en', limit = 6, sessionId = null) {
   try {
     console.log('Starting adaptive knowledge search...');
     
@@ -149,10 +149,24 @@ async function adaptiveKnowledgeSearch(env, userMessage, language = 'en', limit 
     // Strategy 3: Context-aware fusion
     const fusedResults = fuseAndRankResults(vectorResults, keywordResults, userMessage, limit);
     
-    // Strategy 4: Add conversation context if available
-    // TODO: Implement conversation history context
+    // Strategy 4: Optional reranking with BAAI/bge-reranker-base via Hugging Face Inference API
+    let rerankedResults = fusedResults;
+    try {
+      rerankedResults = await rerankWithBGEReranker(env, userMessage, fusedResults, limit);
+    } catch (e) {
+      console.log('Reranker not available or failed; using fused results.');
+    }
     
-    return fusedResults;
+    // Strategy 5: Add conversation context if available
+    if (sessionId) {
+      const conversationContext = await getConversationHistory(env, sessionId, 5);
+      if (conversationContext.length > 0) {
+        // Boost relevance for topics mentioned in recent conversation
+        rerankedResults = enhanceWithConversationContext(rerankedResults, conversationContext, userMessage);
+      }
+    }
+    
+    return rerankedResults;
     
   } catch (error) {
     console.error('Adaptive search error:', error);
@@ -173,8 +187,8 @@ async function enhancedKeywordSearch(env, userMessage, language, limit = 10) {
         zh: ['叫', '名字', '是谁', '介绍', '背景', '个人', '人', '李一鸣', '一鸣']
       },
       'education': {
-        en: ['education', 'university', 'degree', 'study', 'academic', 'school', 'master', 'eit', 'digital', 'bachelor', 'undergraduate'],
-        zh: ['教育', '大学', '学位', '学习', '学校', '硕士', '学历', '专业', '本科', '毕业', '毕业于', '哪里', '哪个大学', '什么大学', '学士']
+        en: ['education', 'university', 'degree', 'study', 'academic', 'school', 'master', 'eit', 'digital', 'bachelor', 'undergraduate', 'bachelor\'s', 'bachelors', 'communication engineering', 'shandong'],
+        zh: ['教育', '大学', '学位', '学习', '学校', '硕士', '学历', '专业', '本科', '毕业', '毕业于', '哪里', '哪个大学', '什么大学', '学士', '通信工程', '山东大学', '山东']
       },
       'experience': {
         en: ['experience', 'work', 'job', 'career', 'professional', 'employment', 'position'],
@@ -343,6 +357,84 @@ async function performVectorSearch(env, queryEmbedding, limit = 10) {
   }
 }
 
+// Rerank retrieval candidates with BAAI/bge-reranker-base via Hugging Face Inference API
+async function rerankWithBGEReranker(env, query, candidates, limit = 6) {
+  try {
+    // Only run if a Hugging Face API key/token is configured
+    const apiKey = env.HF_API_KEY || env.HF_TOKEN;
+    if (!apiKey) return candidates;
+
+    const model = env.HF_RERANKER_MODEL || 'BAAI/bge-reranker-base';
+    const endpoint = `https://api-inference.huggingface.co/models/${model}`;
+
+    if (!Array.isArray(candidates) || candidates.length === 0) return candidates;
+
+    // Prepare query-document pairs; keep within reasonable size to control latency
+    const q = String(query || '').slice(0, 1000);
+    const pairs = candidates.map(item => {
+      const text = `${item.title ? item.title + '\n' : ''}${item.content || ''}`.slice(0, 1500);
+      return [q, text];
+    });
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        inputs: pairs,
+        options: { wait_for_model: true, use_cache: true }
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      console.log('HF reranker error:', response.status, err);
+      return candidates;
+    }
+
+    const data = await response.json();
+
+    // Try multiple response shapes to be robust across pipeline configs
+    let scores = [];
+    if (Array.isArray(data)) {
+      if (typeof data[0] === 'number') {
+        scores = data;
+      } else if (data[0] && typeof data[0].score === 'number') {
+        scores = data.map(d => d.score);
+      } else if (Array.isArray(data[0]) && data[0][0] && typeof data[0][0].score === 'number') {
+        scores = data.map(arr => arr[0].score);
+      } else {
+        try {
+          scores = data.map(d => (Array.isArray(d) && d[0] && typeof d[0].score === 'number') ? d[0].score : 0);
+        } catch (_) {
+          scores = candidates.map(() => 0);
+        }
+      }
+    }
+
+    const withScores = candidates.map((c, i) => ({
+      ...c,
+      rerank_score: typeof scores[i] === 'number' ? scores[i] : 0
+    }));
+
+    // Sort primarily by rerank score; fallback to previous score for ties
+    const sorted = withScores
+      .sort((a, b) => (b.rerank_score - a.rerank_score) || ((b.score || 0) - (a.score || 0)))
+      .slice(0, limit)
+      .map(item => ({
+        ...item,
+        score: Math.max(item.score || 0, (item.rerank_score || 0))
+      }));
+
+    return sorted;
+  } catch (e) {
+    console.log('Reranker exception:', e);
+    return candidates;
+  }
+}
+
 // Translate Chinese query to English for better knowledge search
 async function translateQueryToEnglish(env, chineseQuery) {
   try {
@@ -420,7 +512,9 @@ async function generateGemini25Response(env, userMessage, relevantKnowledge, lan
 2. Be conversational, friendly, and professional
 3. If information is incomplete, suggest contacting Yiming directly
 4. Focus on the most relevant information based on confidence scores
-5. Keep responses concise but informative`;
+5. Keep responses concise but informative
+6. Avoid repeating the same information multiple times
+7. If contact information is requested, provide it in a clean, organized format without duplication`;
 
     // Check if we have relevant knowledge for this query
     const hasRelevantInfo = relevantKnowledge && relevantKnowledge.length > 0 && 
@@ -854,6 +948,64 @@ async function handleKnowledgeRequest(env) {
   } catch (error) {
     console.error('Error fetching knowledge base:', error);
     return createErrorResponse('Failed to fetch knowledge base', 500);
+  }
+}
+
+// Get conversation history for context
+async function getConversationHistory(env, sessionId, limit = 5) {
+  try {
+    const history = await env.DB.prepare(
+      "SELECT role, content, timestamp FROM conversations WHERE session_id = ? ORDER BY timestamp DESC LIMIT ?"
+    ).bind(sessionId, limit * 2).all();
+    
+    return (history.results || []).reverse(); // Return in chronological order
+  } catch (error) {
+    console.error('Error getting conversation history:', error);
+    return [];
+  }
+}
+
+// Enhance results with conversation context
+function enhanceWithConversationContext(results, conversationHistory, currentMessage) {
+  try {
+    // Extract topics from conversation history
+    const conversationText = conversationHistory
+      .map(msg => msg.content)
+      .join(' ')
+      .toLowerCase();
+    
+    const conversationKeywords = extractSearchTerms(conversationText);
+    const currentKeywords = extractSearchTerms(currentMessage);
+    
+    // Boost results that relate to recent conversation topics
+    return results.map(result => {
+      let contextBoost = 0;
+      const resultText = `${result.title} ${result.content}`.toLowerCase();
+      
+      // Check for keyword overlap with conversation
+      conversationKeywords.forEach(keyword => {
+        if (resultText.includes(keyword)) {
+          contextBoost += 0.1;
+        }
+      });
+      
+      // Check for keyword overlap with current message
+      currentKeywords.forEach(keyword => {
+        if (resultText.includes(keyword)) {
+          contextBoost += 0.05;
+        }
+      });
+      
+      return {
+        ...result,
+        score: (result.score || 0) + Math.min(contextBoost, 0.3), // Cap the boost
+        hasConversationContext: contextBoost > 0
+      };
+    }).sort((a, b) => (b.score || 0) - (a.score || 0));
+    
+  } catch (error) {
+    console.error('Error enhancing with conversation context:', error);
+    return results;
   }
 }
 

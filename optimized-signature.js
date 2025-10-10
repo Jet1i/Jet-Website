@@ -1,23 +1,30 @@
-// Optimized Signature Widget - Canvas-based for better performance
-class OptimizedSignature {
+// Performance-Optimized Signature Widget
+class PerformanceOptimizedSignature {
     constructor(container, text) {
         this.container = container;
         this.text = text.toUpperCase();
         this.canvas = null;
         this.ctx = null;
         this.particles = [];
-        this.mouseX = 0;
-        this.mouseY = 0;
+        this.mouseX = -1000;
+        this.mouseY = -1000;
         this.isAnimating = false;
         this.animationId = null;
+        this.lastRenderTime = 0;
+        this.targetFPS = 60;
+        this.frameInterval = 1000 / this.targetFPS;
         
-        // Configuration
-        this.pixelSize = 3;
-        this.spacing = 1;
-        this.repulsionRadius = 80;
-        this.repulsionStrength = 30;
-        this.returnSpeed = 0.08;
+        // Optimized configuration
+        this.pixelSize = 4; // Increased for fewer particles
+        this.spacing = 3; // Increased spacing
+        this.repulsionRadius = 60; // Reduced radius
+        this.repulsionStrength = 20; // Reduced strength
+        this.returnSpeed = 0.12; // Faster return
         this.glowIntensity = 0;
+        
+        // Performance tracking
+        this.particleUpdateBatch = 5; // Update particles in batches
+        this.currentBatch = 0;
         
         this.init();
     }
@@ -34,64 +41,62 @@ class OptimizedSignature {
         this.canvas.className = 'signature-canvas';
         this.ctx = this.canvas.getContext('2d');
         
-        // Set canvas size to full container width
-        const dpr = window.devicePixelRatio || 1;
+        // Set canvas size
+        const dpr = Math.min(window.devicePixelRatio || 1, 2); // Limit DPR for performance
         const rect = this.container.getBoundingClientRect();
         const containerWidth = rect.width || window.innerWidth * 0.9;
         
         this.canvas.width = containerWidth * dpr;
-        this.canvas.height = 250 * dpr; // Increased height for larger text
+        this.canvas.height = 200 * dpr; // Reduced height
         this.canvas.style.width = containerWidth + 'px';
-        this.canvas.style.height = '250px';
+        this.canvas.style.height = '200px';
         
         this.ctx.scale(dpr, dpr);
+        
+        // Enable canvas optimizations
+        this.ctx.imageSmoothingEnabled = false;
+        
         this.container.appendChild(this.canvas);
     }
     
     createParticles() {
-        // Calculate responsive font size based on container width
-        const containerWidth = this.canvas.width / (window.devicePixelRatio || 1);
-        const fontSize = Math.min(containerWidth / 8, 80); // Responsive size, max 80px
+        const containerWidth = this.canvas.width / (Math.min(window.devicePixelRatio || 1, 2));
+        const fontSize = Math.min(containerWidth / 10, 60); // Smaller font
         
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        // Set up text rendering
         ctx.font = `bold ${fontSize}px Arial, sans-serif`;
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        // Make canvas width match container width for full-width text
-        canvas.width = containerWidth * 0.9; // 90% of container width for some padding
-        canvas.height = fontSize * 1.5;
+        canvas.width = containerWidth * 0.8;
+        canvas.height = fontSize * 1.2;
         
-        // Re-apply styles after canvas resize
+        // Re-apply styles
         ctx.font = `bold ${fontSize}px Arial, sans-serif`;
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        // Draw text
         ctx.fillText(this.text, canvas.width / 2, canvas.height / 2);
         
-        // Get image data
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
         
-        // Create particles from text pixels
-        const centerX = this.canvas.width / (window.devicePixelRatio || 1) / 2;
-        const centerY = this.canvas.height / (window.devicePixelRatio || 1) / 2;
+        const centerX = this.canvas.width / (Math.min(window.devicePixelRatio || 1, 2)) / 2;
+        const centerY = this.canvas.height / (Math.min(window.devicePixelRatio || 1, 2)) / 2;
         const offsetX = canvas.width / 2;
         const offsetY = canvas.height / 2;
         
-        // Create denser particles for better text visibility
-        for (let y = 0; y < canvas.height; y += 2) {
-            for (let x = 0; x < canvas.width; x += 2) {
+        // Create fewer particles with larger spacing
+        for (let y = 0; y < canvas.height; y += 4) { // Increased step
+            for (let x = 0; x < canvas.width; x += 4) { // Increased step
                 const index = (y * canvas.width + x) * 4;
                 const alpha = data[index + 3];
                 
-                if (alpha > 50) { // Lower threshold for more particles
+                if (alpha > 100) { // Higher threshold for fewer particles
                     const particle = {
                         originalX: centerX + (x - offsetX),
                         originalY: centerY + (y - offsetY),
@@ -99,82 +104,109 @@ class OptimizedSignature {
                         y: centerY + (y - offsetY),
                         vx: 0,
                         vy: 0,
-                        size: 2,
-                        opacity: alpha / 255,
-                        hue: 180 + Math.random() * 40, // Cyan to blue range
-                        isTextParticle: true
+                        size: 2.5,
+                        opacity: Math.min(alpha / 255, 0.9),
+                        hue: 180 + Math.random() * 30,
+                        isTextParticle: true,
+                        needsUpdate: false
                     };
                     this.particles.push(particle);
                 }
             }
         }
+        
+        console.log(`Created ${this.particles.length} particles`); // For debugging
     }
     
     attachEventListeners() {
+        // Throttled mouse movement
+        let mouseMoveTimeout;
         const updateMouse = (e) => {
-            const rect = this.canvas.getBoundingClientRect();
-            this.mouseX = e.clientX - rect.left;
-            this.mouseY = e.clientY - rect.top;
+            if (mouseMoveTimeout) return;
+            
+            mouseMoveTimeout = setTimeout(() => {
+                const rect = this.canvas.getBoundingClientRect();
+                this.mouseX = e.clientX - rect.left;
+                this.mouseY = e.clientY - rect.top;
+                mouseMoveTimeout = null;
+            }, 16); // ~60fps throttling
         };
         
-        this.canvas.addEventListener('mousemove', updateMouse);
+        this.canvas.addEventListener('mousemove', updateMouse, { passive: true });
         
+        // Touch events with throttling
+        let touchMoveTimeout;
         this.canvas.addEventListener('touchmove', (e) => {
             e.preventDefault();
-            if (e.touches.length > 0) {
-                const rect = this.canvas.getBoundingClientRect();
-                this.mouseX = e.touches[0].clientX - rect.left;
-                this.mouseY = e.touches[0].clientY - rect.top;
-            }
-        });
+            if (touchMoveTimeout) return;
+            
+            touchMoveTimeout = setTimeout(() => {
+                if (e.touches.length > 0) {
+                    const rect = this.canvas.getBoundingClientRect();
+                    this.mouseX = e.touches[0].clientX - rect.left;
+                    this.mouseY = e.touches[0].clientY - rect.top;
+                }
+                touchMoveTimeout = null;
+            }, 16);
+        }, { passive: false });
         
         this.canvas.addEventListener('mouseenter', () => {
             this.isAnimating = true;
-        });
+        }, { passive: true });
         
         this.canvas.addEventListener('mouseleave', () => {
             this.isAnimating = false;
             this.mouseX = -1000;
             this.mouseY = -1000;
-        });
+        }, { passive: true });
         
-        // Handle window resize
+        // Debounced resize handler
+        let resizeTimeout;
         window.addEventListener('resize', () => {
-            this.handleResize();
-        });
+            if (resizeTimeout) clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => this.handleResize(), 300);
+        }, { passive: true });
     }
     
     handleResize() {
-        const dpr = window.devicePixelRatio || 1;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const rect = this.container.getBoundingClientRect();
         const containerWidth = rect.width || window.innerWidth * 0.9;
         
         this.canvas.width = containerWidth * dpr;
-        this.canvas.height = 250 * dpr; // Increased height for larger text
+        this.canvas.height = 200 * dpr;
         this.canvas.style.width = containerWidth + 'px';
-        this.canvas.style.height = '250px';
+        this.canvas.style.height = '200px';
         
         this.ctx.scale(dpr, dpr);
+        this.ctx.imageSmoothingEnabled = false;
         
-        // Recreate particles with new positioning
         this.particles = [];
         this.createParticles();
     }
     
     updateParticles() {
-        this.particles.forEach(particle => {
+        // Update particles in batches for better performance
+        const batchSize = Math.ceil(this.particles.length / this.particleUpdateBatch);
+        const startIndex = this.currentBatch * batchSize;
+        const endIndex = Math.min(startIndex + batchSize, this.particles.length);
+        
+        for (let i = startIndex; i < endIndex; i++) {
+            const particle = this.particles[i];
+            let needsUpdate = false;
+            
             const dx = this.mouseX - particle.x;
             const dy = this.mouseY - particle.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
             
             if (distance < this.repulsionRadius && this.isAnimating) {
-                // Repulsion force
                 const force = (this.repulsionRadius - distance) / this.repulsionRadius;
                 const repulsionX = -(dx / distance) * force * this.repulsionStrength;
                 const repulsionY = -(dy / distance) * force * this.repulsionStrength;
                 
                 particle.vx += repulsionX;
                 particle.vy += repulsionY;
+                needsUpdate = true;
             }
             
             // Return to original position
@@ -185,71 +217,76 @@ class OptimizedSignature {
             particle.vy += returnY;
             
             // Apply velocity with damping
-            particle.vx *= 0.9;
-            particle.vy *= 0.9;
+            particle.vx *= 0.85; // Increased damping
+            particle.vy *= 0.85;
             
-            particle.x += particle.vx;
-            particle.y += particle.vy;
-        });
-    }
-    
-    render() {
-        // Clear canvas
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Update glow effect
-        if (this.isAnimating) {
-            this.glowIntensity = Math.min(this.glowIntensity + 0.05, 1);
-        } else {
-            this.glowIntensity = Math.max(this.glowIntensity - 0.02, 0);
+            if (Math.abs(particle.vx) > 0.01 || Math.abs(particle.vy) > 0.01) {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                needsUpdate = true;
+            }
+            
+            particle.needsUpdate = needsUpdate;
         }
         
-        // Render particles
+        this.currentBatch = (this.currentBatch + 1) % this.particleUpdateBatch;
+    }
+    
+    render(currentTime) {
+        // Frame rate limiting
+        if (currentTime - this.lastRenderTime < this.frameInterval) {
+            return false;
+        }
+        this.lastRenderTime = currentTime;
+        
+        // Clear canvas efficiently
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Update glow effect smoothly
+        if (this.isAnimating) {
+            this.glowIntensity = Math.min(this.glowIntensity + 0.08, 1);
+        } else {
+            this.glowIntensity = Math.max(this.glowIntensity - 0.04, 0);
+        }
+        
+        // Simplified rendering without complex gradients
+        this.ctx.globalCompositeOperation = 'source-over';
+        
         this.particles.forEach(particle => {
-            const baseOpacity = particle.opacity || 1;
-            const glowSize = 1 + this.glowIntensity * 1.5;
-            const finalSize = particle.size * glowSize;
+            const baseOpacity = particle.opacity;
+            const size = particle.size + (this.glowIntensity * 0.5);
             
-            // Enhanced glow effect for better visibility
-            if (this.glowIntensity > 0) {
+            // Simplified glow effect
+            if (this.glowIntensity > 0.1) {
                 this.ctx.beginPath();
-                const gradient = this.ctx.createRadialGradient(
-                    particle.x, particle.y, 0,
-                    particle.x, particle.y, finalSize * 3
-                );
-                gradient.addColorStop(0, `hsla(${particle.hue}, 100%, 70%, ${this.glowIntensity * baseOpacity * 0.9})`);
-                gradient.addColorStop(0.5, `hsla(${particle.hue}, 100%, 60%, ${this.glowIntensity * baseOpacity * 0.5})`);
-                gradient.addColorStop(1, `hsla(${particle.hue}, 100%, 50%, 0)`);
-                
-                this.ctx.fillStyle = gradient;
-                this.ctx.arc(particle.x, particle.y, finalSize * 3, 0, Math.PI * 2);
+                this.ctx.fillStyle = `hsla(${particle.hue}, 80%, 60%, ${this.glowIntensity * baseOpacity * 0.3})`;
+                this.ctx.arc(particle.x, particle.y, size * 2, 0, Math.PI * 2);
                 this.ctx.fill();
             }
             
-            // Main particle with enhanced visibility
+            // Main particle
             this.ctx.beginPath();
-            this.ctx.fillStyle = `hsla(${particle.hue}, 100%, 70%, ${baseOpacity})`;
-            this.ctx.arc(particle.x, particle.y, Math.max(finalSize, 1.5), 0, Math.PI * 2);
+            this.ctx.fillStyle = `hsla(${particle.hue}, 90%, 75%, ${baseOpacity})`;
+            this.ctx.arc(particle.x, particle.y, size, 0, Math.PI * 2);
             this.ctx.fill();
-            
-            // Add bright core for text particles
-            if (particle.isTextParticle) {
-                this.ctx.beginPath();
-                this.ctx.fillStyle = `hsla(${particle.hue}, 80%, 90%, ${baseOpacity * 0.8})`;
-                this.ctx.arc(particle.x, particle.y, Math.max(finalSize * 0.6, 1), 0, Math.PI * 2);
-                this.ctx.fill();
-            }
         });
+        
+        return true;
     }
     
     startAnimation() {
-        const animate = () => {
+        const animate = (currentTime) => {
             this.updateParticles();
-            this.render();
+            
+            // Only render if necessary
+            if (this.isAnimating || this.glowIntensity > 0) {
+                this.render(currentTime);
+            }
+            
             this.animationId = requestAnimationFrame(animate);
         };
         
-        animate();
+        this.animationId = requestAnimationFrame(animate);
     }
     
     destroy() {
@@ -266,6 +303,6 @@ class OptimizedSignature {
 document.addEventListener('DOMContentLoaded', () => {
     const container = document.querySelector('.signature-container');
     if (container) {
-        new OptimizedSignature(container, 'YIMING LI');
+        new PerformanceOptimizedSignature(container, 'YIMING LI');
     }
 });

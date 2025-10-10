@@ -1,0 +1,289 @@
+/* Modern Interactive Signature Widget */
+.signature-widget {
+    position: relative;
+    width: 100%;
+    padding: 80px 20px;
+    background: 
+        linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #0e4b99 100%);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+    border-radius: 20px;
+    margin: 40px 20px;
+    box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.3),
+        0 0 100px rgba(14, 75, 153, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.signature-widget::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 20%, rgba(0, 212, 255, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(100, 200, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 60%, rgba(50, 150, 255, 0.08) 0%, transparent 40%);
+    pointer-events: none;
+    animation: backgroundPulse 8s ease-in-out infinite;
+}
+
+@keyframes backgroundPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.signature-widget h3 {
+    color: #ffffff;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0 0 40px 0;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    text-align: center;
+    background: linear-gradient(135deg, #00d4ff, #0099cc, #ffffff);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 4px 20px rgba(0, 212, 255, 0.3);
+    position: relative;
+    z-index: 2;
+}
+
+.signature-widget h3::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #00d4ff, transparent);
+    animation: underlineGlow 3s ease-in-out infinite;
+}
+
+@keyframes underlineGlow {
+    0%, 100% { opacity: 0.5; width: 60px; }
+    50% { opacity: 1; width: 120px; }
+}
+
+.signature-container {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    padding: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    z-index: 1;
+}
+
+.signature-canvas {
+    cursor: crosshair;
+    border-radius: 12px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: drop-shadow(0 4px 20px rgba(0, 212, 255, 0.2));
+    background: rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+}
+
+.signature-canvas:hover {
+    transform: scale(1.02);
+    filter: drop-shadow(0 8px 30px rgba(0, 212, 255, 0.4));
+    border-color: rgba(0, 212, 255, 0.4);
+}
+
+/* Floating elements animation */
+.signature-widget::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        radial-gradient(2px 2px at 20px 30px, rgba(255, 255, 255, 0.15), transparent),
+        radial-gradient(2px 2px at 40px 70px, rgba(0, 212, 255, 0.2), transparent),
+        radial-gradient(1px 1px at 90px 40px, rgba(255, 255, 255, 0.1), transparent),
+        radial-gradient(1px 1px at 130px 80px, rgba(0, 212, 255, 0.15), transparent);
+    background-repeat: repeat;
+    background-size: 150px 100px;
+    animation: sparkle 15s linear infinite;
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+@keyframes sparkle {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-100px); }
+}
+
+/* Loading state with modern spinner */
+.signature-widget.loading .signature-container::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(0, 212, 255, 0.2);
+    border-top: 3px solid #00d4ff;
+    border-radius: 50%;
+    animation: modernSpin 1s linear infinite;
+    z-index: 10;
+}
+
+.signature-widget.loading .signature-container::after {
+    content: 'Initializing Interactive Signature...';
+    position: absolute;
+    top: calc(50% + 35px);
+    left: 50%;
+    transform: translateX(-50%);
+    color: #00d4ff;
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0.8;
+    letter-spacing: 1px;
+    z-index: 10;
+}
+
+@keyframes modernSpin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+    .signature-widget {
+        padding: 60px 15px;
+        min-height: 320px;
+        margin: 20px 10px;
+        border-radius: 15px;
+    }
+    
+    .signature-widget h3 {
+        font-size: 20px;
+        margin-bottom: 30px;
+        letter-spacing: 2px;
+    }
+    
+    .signature-container {
+        max-width: 90%;
+        padding: 20px;
+    }
+    
+    .signature-canvas {
+        cursor: pointer;
+    }
+    
+    .signature-canvas:hover {
+        transform: scale(1.01);
+    }
+}
+
+@media (max-width: 480px) {
+    .signature-widget {
+        padding: 40px 10px;
+        min-height: 280px;
+        margin: 15px 5px;
+        border-radius: 12px;
+    }
+    
+    .signature-widget h3 {
+        font-size: 18px;
+        margin-bottom: 25px;
+        letter-spacing: 1.5px;
+    }
+    
+    .signature-container {
+        padding: 15px;
+    }
+    
+    /* Reduce animations on small screens for performance */
+    .signature-widget::after {
+        animation-duration: 20s;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .signature-widget {
+        background: #000000;
+        border: 2px solid #ffffff;
+    }
+    
+    .signature-widget h3 {
+        color: #ffffff;
+        -webkit-text-fill-color: #ffffff;
+    }
+    
+    .signature-container {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid #ffffff;
+    }
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .signature-widget::before,
+    .signature-widget::after,
+    .signature-widget h3::after {
+        animation: none;
+    }
+    
+    .signature-canvas {
+        transition: none;
+    }
+    
+    .signature-canvas:hover {
+        transform: none;
+        filter: none;
+    }
+}
+
+/* Dark mode enhancements */
+@media (prefers-color-scheme: dark) {
+    .signature-widget {
+        box-shadow: 
+            0 20px 60px rgba(0, 0, 0, 0.5),
+            0 0 100px rgba(14, 75, 153, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    }
+}
+
+/* Focus states for accessibility */
+.signature-canvas:focus {
+    outline: 2px solid #00d4ff;
+    outline-offset: 4px;
+}
+
+/* Print styles */
+@media print {
+    .signature-widget {
+        background: white;
+        color: black;
+        box-shadow: none;
+        border: 1px solid #ccc;
+    }
+    
+    .signature-widget::before,
+    .signature-widget::after {
+        display: none;
+    }
+}

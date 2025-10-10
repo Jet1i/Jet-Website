@@ -1,0 +1,155 @@
+/* Optimized Signature Widget - Canvas-based */
+.signature-widget {
+    position: relative;
+    width: 100%;
+    padding: 60px 20px;
+    background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 350px;
+    touch-action: manipulation;
+}
+
+.signature-widget h3 {
+    color: #00d4ff;
+    font-family: 'Inter', sans-serif;
+    font-size: 18px;
+    font-weight: 300;
+    margin: 0 0 30px 0;
+    opacity: 0.8;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    text-align: center;
+}
+
+.signature-container {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.signature-canvas {
+    cursor: crosshair;
+    border-radius: 8px;
+    transition: transform 0.3s ease;
+    image-rendering: crisp-edges;
+    image-rendering: -webkit-crisp-edges;
+}
+
+.signature-canvas:hover {
+    transform: scale(1.02);
+}
+
+/* Subtle background pattern */
+.signature-widget::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at 25% 25%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(0, 150, 255, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+    .signature-widget {
+        padding: 40px 15px;
+        min-height: 250px;
+    }
+    
+    .signature-widget h3 {
+        font-size: 16px;
+        margin-bottom: 25px;
+        letter-spacing: 2px;
+    }
+    
+    .signature-container {
+        max-width: 90%;
+    }
+    
+    .signature-canvas {
+        cursor: pointer;
+    }
+    
+    .signature-canvas:hover {
+        transform: none; /* Disable hover transform on mobile */
+    }
+}
+
+@media (max-width: 480px) {
+    .signature-widget {
+        padding: 30px 10px;
+        min-height: 200px;
+    }
+    
+    .signature-widget h3 {
+        font-size: 14px;
+        margin-bottom: 20px;
+        letter-spacing: 1.5px;
+    }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .signature-canvas {
+        image-rendering: crisp-edges;
+        image-rendering: -webkit-crisp-edges;
+        image-rendering: -moz-crisp-edges;
+    }
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .signature-canvas {
+        transition: none;
+    }
+    
+    .signature-canvas:hover {
+        transform: none;
+    }
+    
+    .signature-widget::before {
+        animation: none;
+    }
+}
+
+/* Loading state */
+.signature-widget.loading .signature-container::after {
+    content: 'Loading signature...';
+    position: absolute;
+    color: #00d4ff;
+    font-size: 14px;
+    opacity: 0.6;
+}
+
+/* Performance optimization for animations */
+.signature-canvas {
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+/* Subtle animation for the background */
+@keyframes backgroundShift {
+    0%, 100% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+.signature-widget {
+    background-size: 200% 200%;
+    animation: backgroundShift 20s ease-in-out infinite;
+}

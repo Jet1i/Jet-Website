@@ -1,0 +1,148 @@
+/* Footer Glitch Text - Trae-like footer with mouse translation + block push interaction
+   Implements updated signature.txt:
+   - Full-width footer, fixed at bottom, height ~60vh, WHITE background
+   - Ultra-large bold uppercase black text: "YIMING LI"
+   - Glitch via ::before/::after using clip-path horizontal bands + translateX jitter
+   - Mousemove 1) translates whole text smoothly within [-20px, +20px]
+   - Mousemove 2) pushes many sliced blocks toward cursor with distance falloff
+   - Reduced motion disables animations and interaction
+*/
+
+/* 1) Full-width footer fixed to bottom with white background */
+.glitch-footer {
+  position: relative;             /* not fixed; sits in normal flow at bottom */
+  width: 100%;
+  min-height: 60vh;               /* ~60% of viewport height */
+  background: #ffffff;            /* white background */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6vh 4vw;
+  overflow: hidden;               /* contain slices */
+}
+
+
+/* 2) Massive bold uppercase text filling the width */
+.glitch-text {
+  position: relative;              /* anchor for pseudo-elements */
+  font-family: 'Montserrat', 'Inter', system-ui, -apple-system, sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  color: transparent;              /* hide base text to avoid double rendering */
+  line-height: 0.9;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-align: center;
+
+  /* Responsive giant size aiming to fill width */
+  font-size: clamp(56px, 17vw, 240px);
+
+  /* Whole-text translation controlled by JS via CSS vars */
+  --tx: 0px;                       /* horizontal translation */
+  --ty: 0px;                       /* vertical translation */
+  transform: translate(var(--tx), var(--ty));
+  transition: transform 0.3s ease-out; /* smooth motion */
+}
+
+/* 3) Pseudo layers for glitch slicing and jitter
+   - Duplicate same content, absolutely overlay base text
+   - clip-path exposes horizontal bands that we jitter via translateX
+   - Also follow mouse translation using CSS variables with slight multipliers (parallax)
+*/
+/* Disable base pseudo glitch layers to ensure only one visible text (via blocks) */
+.glitch-text::before,
+.glitch-text::after {
+  content: none;
+}
+
+/* base pseudo layers disabled above */
+
+/* 4) Keyframes for band selection and jitter */
+@keyframes glitch-clip-1 {
+  0%   { clip-path: inset(12% 0 74% 0); }
+  20%  { clip-path: inset(22% 0 64% 0); }
+  40%  { clip-path: inset(38% 0 48% 0); }
+  60%  { clip-path: inset(28% 0 58% 0); }
+  80%  { clip-path: inset(16% 0 70% 0); }
+  100% { clip-path: inset(10% 0 76% 0); }
+}
+
+@keyframes glitch-clip-2 {
+  0%   { clip-path: inset(72% 0 14% 0); }
+  20%  { clip-path: inset(62% 0 24% 0); }
+  40%  { clip-path: inset(54% 0 32% 0); }
+  60%  { clip-path: inset(78% 0 8% 0); }
+  80%  { clip-path: inset(66% 0 20% 0); }
+  100% { clip-path: inset(58% 0 28% 0); }
+}
+
+@keyframes glitch-shift-x {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(3px); }
+  40%  { transform: translateX(-4px); }
+  60%  { transform: translateX(2px); }
+  80%  { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+
+/* 5) Block slicing overlay built dynamically via JS
+   - .glitch-blocks overlays full area; individual .glitch-block elements
+     each render the same text, but clipped to a small rectangle via clip-path
+   - We then translate blocks toward cursor with distance falloff (in JS)
+*/
+.glitch-blocks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;            /* allow interactions to pass to footer */
+  transform: translate(0,0);
+  transition: transform 0.3s ease-out; /* follow whole-text translate smoothly */
+}
+
+.glitch-block {
+  position: absolute;              /* we size by clip insets; full container box */
+  inset: 0;                        /* pseudo fills the area, clipped to rect */
+  will-change: transform;          /* smoother transforms */
+  transform: translate(0, 0);
+  transition: transform 0.2s ease-out; /* block push smoothness */
+}
+
+/* Each block draws the same text and clips to its own rect */
+.glitch-block::before {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  color: #000;
+  font-family: 'Montserrat', 'Inter', system-ui, -apple-system, sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  line-height: 0.9;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-align: center;
+  font-size: clamp(56px, 17vw, 240px);
+  clip-path: inset(var(--t,0%) var(--r,0%) var(--b,0%) var(--l,0%));
+}
+
+/* Optional: per-block tiny jitter to add extra glitchiness on some blocks */
+@keyframes block-jitter {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(1px, -1px); }
+  100% { transform: translate(0, 0); }
+}
+
+.glitch-block.jitter::before {
+  animation: block-jitter 0.6s steps(2, end) infinite;
+}
+
+/* 6) Reduced motion disables both glitch and mouse-follow */
+@media (prefers-reduced-motion: reduce) {
+  .glitch-text,
+  .glitch-text::before,
+  .glitch-text::after,
+  .glitch-block,
+  .glitch-block::before {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
+}

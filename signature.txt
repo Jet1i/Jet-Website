@@ -1,0 +1,28 @@
+你是一名前端开发专家，请帮助我实现 TRAE.ai 页脚的动态文字效果，与此同时只有在用户滚动到页面底部时才显示该效果。具体要求如下：
+
+1. 页面结构包含一个 `<main>` 区域和一个 `<footer>` 区域。  
+   - `<main>` 内放置若干占位内容（例如段落或图片），以便产生足够的滚动高度。  
+   - `<footer>` 位于页面底部，不固定定位，其高度约为视窗高度的 60%，背景为白色。
+
+2. 在 `<footer>` 中放置一个包含黑色大写文字 “YIMING LI” 的容器。字体要求：超大尺寸、粗体、全部大写，居中显示。
+
+3. 将文字分割为多个小块以生成 glitch 效果：  
+   - 使用伪元素 `::before` 和 `::after` 来复制文本内容并完全重叠在主文本上，每个伪元素通过 `clip-path` 裁剪不同的水平片段:contentReference[oaicite:3]{index=3}。  
+   - 为伪元素分别编写 `@keyframes` 动画:contentReference[oaicite:4]{index=4}，在关键帧中利用 `transform: translateX()` 创建随机的左右抖动:contentReference[oaicite:5]{index=5}。  
+   - 动画应设置不同的时长和延迟，营造随机错位的 glitch 效果。
+
+4. 鼠标推动效果：  
+   - 使用 JavaScript 监听 `<footer>` 内的 `mousemove` 事件，在该区域可见时根据鼠标位置计算偏移量。  
+   - 根据鼠标距离容器中心的距离，计算一个有限的偏移值，将主文本以及伪元素整体通过 `transform: translate(...)` 平移，使靠近鼠标的部分看起来像被推开。  
+   - 鼠标离开区域时，渐变恢复至初始位置。可添加 `transition: transform 0.2s ease-out` 让移动平滑。
+
+5. 仅在滚动到页脚时激活动画：  
+   - 使用 Intersection Observer API 检测 `<footer>` 元素进入视口。只有在可见时才添加动画类或启动 `requestAnimationFrame`/`mousemove` 监听，离开视口时暂停动画。
+
+6. 可选特性：  
+   - 定义 CSS 变量控制 glitch 的最大移动距离、动画速度等，方便后续调节。  
+   - 使用 `@media (prefers-reduced-motion: reduce)` 关闭动画和鼠标互动，以提高可访问性。  
+   - 代码中添加明确的注释，解释伪元素切片、关键帧动画和鼠标推动效果的实现原理。
+
+请输出完整的 HTML、CSS 和 JavaScript 代码，并确保页面加载后滚动到底部才会出现带有 glitch 和鼠标推动效果的 “YIMING LI” 文本。
+
